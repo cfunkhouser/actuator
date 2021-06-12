@@ -1,0 +1,39 @@
+groups:
+  # I have found these rules useful for debugging alert state changes.
+  - name: debugging
+    rules:
+      - record: global:ALERTS:state_changes_over_30s
+        expr: count(changes(ALERTS[30s])) by (alertname, alertstate, severity)
+      - record: global:ALERTS:state_changes_over_1m
+        expr: count(changes(ALERTS[1m])) by (alertname, alertstate, severity)
+
+  # These recording rules produce the data to drive the integration testing
+  # alerts, below.
+  - name: integration-testing
+    rules:
+      # test:zero_for_30s_every_2m is zero for the first 30s of every two minute
+      # interval. This provides a predicatable source of zeroness that can drive
+      # repeated alert trigers.
+      - record: test:zero_for_30s_every_2m
+        expr: ((ceil(vector(time() / 30)) * 30) % 120) != bool 0
+
+  - name: integration-testing-alerts
+    rules:
+      - alert: FiresFor30sEveryTwoMinutes
+        expr: test:zero_for_30s_every_2m == 0
+        for: 0
+        labels:
+          severity: testing
+        annotations:
+          summary: It's time for another test!
+          description: |
+            This is a test alert, which fires for 30s out of every 2m.
+      - alert: FiresEveryOtherMinuteForOneMinute
+        expr: test:zero_for_30s_every_2m == 0
+        for: 30s
+        labels:
+          severity: testing
+        annotations:
+          summary: It's time for another test!
+          description: |
+            This is a test alert, which fires every ~1m for ~1m.

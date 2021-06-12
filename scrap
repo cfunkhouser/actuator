@@ -1,0 +1,40 @@
+
+var plan Plan
+what := []Actor{&echoActor{}}
+plan.Do(what, WhenAlertHasLabels([]Label{{"foo","bar"}}))
+
+
+type Condition func(*Plan)
+
+func keyFor(labels []Label) alertKey {
+    seen := make(map[string]bool)
+    var keySegments []string
+    for i := range labels {
+        l := &labels[i]
+        if seen[l.Key] {
+            continue
+        }
+        keySegments = append(keySegments, fmt.Sprintf("%v=%v", l.Key, l.Value))
+        seen[l.Key] = true
+    }
+    sort.Strings(keySegments)
+    return alertKey(strings.Join(keySegments, ";"))
+}
+
+func WhenAlertHasLabels(labels []Label) {
+    return func(plan *Plan) {
+        for _, label := range labels {
+            sa.Accumulate(label.Key, label.Value)
+            sa.Significant(label.Key)
+        }
+        return a.Key()
+    }
+}
+
+func (p *Plan) Do(actions []Action, conditions []Condition...) {
+    for _, c := range conditions {
+        a := confgAccumulator(p)
+        c(a)
+
+    }
+}

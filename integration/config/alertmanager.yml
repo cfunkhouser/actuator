@@ -1,0 +1,15 @@
+---
+route:
+  receiver: actuator-integration-testing
+  group_by:
+    - alertname
+    - severity
+  group_wait: 5s
+  group_interval: 5s
+  repeat_interval: 1m
+
+receivers:
+  - name: actuator-integration-testing
+    webhook_configs:
+      - url: "http://localhost:9942/alerts"
+        send_resolved: true

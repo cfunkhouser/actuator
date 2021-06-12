@@ -1,0 +1,46 @@
+---
+version: "3.9"
+services:
+  actuator:
+    image: actuate-exec:dev
+    ports:
+      - 9942:9942
+    depends_on:
+      - alertmanager
+    restart: always
+    networks:
+      - promnet
+
+  prometheus:
+    image: prom/prometheus
+    tmpfs:
+      - /data:mode=777,size=150M
+    volumes:
+      - ./config:/config
+    command:
+      - --config.file=/config/prometheus.yml
+      - --storage.tsdb.path=/data
+    ports:
+      - 9090:9090
+    depends_on:
+      - alertmanager
+    restart: always
+    networks:
+      - promnet
+
+  alertmanager:
+    image: prom/alertmanager
+    tmpfs:
+      - /data:mode=777,size=150M
+    volumes:
+      - ./config:/config
+    command:
+      - --config.file=/config/alertmanager.yml
+      - --storage.path=/data
+    ports:
+      - 9093:9093
+    networks:
+      - promnet
+networks:
+  promnet:
+    driver: bridge
