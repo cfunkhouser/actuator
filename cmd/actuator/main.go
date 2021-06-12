@@ -45,7 +45,6 @@ const (
 func main() {
 	logrus.SetLevel(logrus.DebugLevel)
 	app := &cli.App{
-		Name:  "actuate-exec",
 		Usage: "Execute commands in response to fired alerts",
 		Flags: []cli.Flag{
 			&cli.StringFlag{

@@ -11,13 +11,16 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// Action which can be taken when an alertmanager payload is sent to a handler.
 type Action interface {
-	Act(*AlermanagerWebhookPayload) error
+	// Act on the alertmanager webhook payload.
+	Act(AlermanagerWebhookPayload) error
 }
 
+// LogAction does nothing but log an alertmanager payload.
 type LogAction struct{}
 
-func (*LogAction) Act(payload *AlermanagerWebhookPayload) error {
+func (*LogAction) Act(payload AlermanagerWebhookPayload) error {
 	logrus.WithFields(logrus.Fields{
 		"alertmanager": payload.Alertmanager,
 		"alert_count":  len(payload.Alerts),
@@ -29,27 +32,30 @@ type commandAction struct {
 	command []string
 }
 
-func (a *commandAction) Act(payload *AlermanagerWebhookPayload) error {
+func (a *commandAction) Act(payload AlermanagerWebhookPayload) error {
+	cmds := strings.Join(a.command, " ")
 	logrus.WithFields(logrus.Fields{
 		"alertmanager": payload.Alertmanager,
 		"alert_count":  len(payload.Alerts),
-	}).Info("Acting on payload")
+		"command":      cmds,
+	}).Info("executing command in response to payload")
 
 	cmd := exec.Command(a.command[0], a.command[1:]...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		logrus.WithError(err).WithFields(logrus.Fields{
-			"command": strings.Join(a.command, " "),
-		}).Error("failed executing command")
+			"command": cmds,
+		}).Errorf("failed: %q", out)
 		return err
 	}
 	logrus.WithFields(logrus.Fields{
-		"command": strings.Join(a.command, " "),
-	}).Infof("Success: %q", out)
+		"command": cmds,
+	}).Infof("success: %q", out)
 	return nil
 }
 
-func Command(command string) (Action, error) {
+// CommandAction executes a command in response to an alertmanager payload.
+func CommandAction(command string) (Action, error) {
 	cmd, err := shlex.Split(command, true)
 	if err != nil {
 		return nil, err
@@ -147,21 +153,27 @@ func (h *actionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 	if payload, ok := h.decodePayload(w, r); ok {
-		if err := h.action.Act(payload); err != nil {
+		// Give the handlers a copy, so that if there are ever multiple handlers,
+		// one can't mess things up for the others.
+		if err := h.action.Act(*payload); err != nil {
 			fail(w, fmt.Sprintf("Action failed: %v", err), http.StatusInternalServerError)
 			return
 		}
 	}
 }
 
+// Option which may be passed to Handle.
 type Option func(*actionHandler)
 
+// WithToken option sets a Bearer token to protect calls to the handler.
 func WithToken(token string) Option {
 	return func(h *actionHandler) {
 		h.token = token
 	}
 }
 
+// Handle alertmanager webhook payloads at path, with the provided Action, using
+// the provided opts (if any).
 func Handle(path string, with Action, opts ...Option) http.Handler {
 	h := &actionHandler{
 		path:   path,
@@ -186,6 +198,8 @@ func (h *defaultHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 var dh = &defaultHandler{}
 
+// DefaultHandler for any HTTP requests not matching a configured alertmanager
+// webhook handler.
 func DefaultHandler() http.Handler {
 	return dh
 }

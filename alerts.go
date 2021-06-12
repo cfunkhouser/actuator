@@ -33,5 +33,5 @@ type AlermanagerWebhookPayload struct {
 	CommonLabels      map[LabelKey]LabelValue `json:"commonLabels"`
 	CommonAnnotations map[string]string       `json:"commonAnnotations"`
 	Alertmanager      string                  `json:"externalURL"`
-	Alerts            []*Alert                `json:"alerts"`
+	Alerts            []Alert                 `json:"alerts"`
 }

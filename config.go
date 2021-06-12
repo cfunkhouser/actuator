@@ -40,7 +40,7 @@ func FromConfig(r io.Reader) (http.Handler, error) {
 			actions[ac.Name] = &LogAction{}
 			continue
 		}
-		cmd, err := Command(ac.Command)
+		cmd, err := CommandAction(ac.Command)
 		if err != nil {
 			return mux, err
 		}
