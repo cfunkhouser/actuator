@@ -71,3 +71,21 @@ route:
         severity: critical
       receiver: pager
 ```
+
+And the corresponding receivers might look like:
+
+```yaml
+receivers:
+  - name: your-default-receiver
+  - name: pager
+    email_configs:
+      - to: alerts@example.com
+    pagerduty_configs:
+      - service_key: youknowwhatevergoeshere
+  - name: reboot-the-modem
+    webhook_configs:
+      - url: "http://localhost:9942/reboot-the-modem"
+        http_config:
+          authorization:
+            credentials: ThisIsSomeToken
+```
