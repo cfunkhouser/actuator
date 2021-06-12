@@ -11,5 +11,8 @@ route:
 receivers:
   - name: actuator-integration-testing
     webhook_configs:
-      - url: "http://localhost:9942/alerts"
+      - url: "http://localhost:9942/example-handler-path"
         send_resolved: true
+        http_config:
+          authorization:
+            credentials: "ThisIsSomeToken"

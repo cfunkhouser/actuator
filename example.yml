@@ -1,0 +1,9 @@
+---
+handlers:
+    - path: "/example-handler-path"
+      token: ThisIsSomeToken
+      action: hello-world
+actions:
+    - name: hello-world
+      command: |
+        echo "Hello, world"

@@ -4,52 +4,63 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 
 	"github.com/cfunkhouser/actuator"
-	"github.com/cfunkhouser/actuator/internal"
-	"github.com/cfunkhouser/httpdumper"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 )
 
-type echoActor struct{}
-
-func (*echoActor) ActOn(alert *actuator.Alert) error {
-	logrus.WithField("alertname", alert.Labels["alertname"]).Debug("hello I am an actor and I am acting!")
-	return nil
+func openConfigFile(c *cli.Context) (io.ReadCloser, error) {
+	cfp := c.String("config.file")
+	if cfp == "" {
+		return nil, cli.Exit("config.file is empty", 1)
+	}
+	f, err := os.Open(cfp)
+	if err != nil {
+		return nil, cli.Exit(err, 1)
+	}
+	return f, nil
 }
 
 func serveExporter(c *cli.Context) error {
-	h, err := actuator.New(
-		actuator.Do(
-			[]actuator.Actor{&echoActor{}},
-			actuator.WhenAlertHasLabels([]*internal.Label{
-				{Key: "site", Value: "context-switch"},
-				{Key: "severity", Value: "critical"},
-			})))
+	cf, err := openConfigFile(c)
 	if err != nil {
 		return err
 	}
-	mux := http.NewServeMux()
-	mux.Handle("/alerts", h)
-	return http.ListenAndServe(c.String("server.address"), httpdumper.LogWrap(mux))
+	handler, err := actuator.FromConfig(cf)
+	if err != nil {
+		return cli.Exit(err, 1)
+	}
+	return http.ListenAndServe(c.String("server.address"), handler)
 }
 
-const defaultActuatorAddress = "0.0.0.0:9942"
+const (
+	defaultActuatorAddress = "0.0.0.0:9942"
+	defaultConfigFile      = "/etc/actuator/actuator.yml"
+)
 
 func main() {
 	logrus.SetLevel(logrus.DebugLevel)
 	app := &cli.App{
 		Name:  "actuate-exec",
 		Usage: "Execute commands in response to fired alerts",
-		Flags: []cli.Flag{&cli.StringFlag{
-			Name:    "server.address",
-			Aliases: []string{"a"},
-			Value:   defaultActuatorAddress,
-			Usage:   "ip:port from which to serve Prometheus metrics",
-		}},
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "server.address",
+				Aliases: []string{"a"},
+				Value:   defaultActuatorAddress,
+				Usage:   "ip:port from which to serve Prometheus metrics",
+			},
+			&cli.StringFlag{
+				Name:    "config.file",
+				Aliases: []string{"c"},
+				Value:   defaultConfigFile,
+				Usage:   "actuator config file location",
+			},
+		},
 		Action: serveExporter,
 	}
 
